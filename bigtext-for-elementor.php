@@ -1,48 +1,60 @@
-<?php 
+<?php
 /**
  * Plugin Name: Bigtext for Elementor
- * Description: Bigtext for Elementor makes lines of text fit in width, thanks to Bitext JS (https://github.com/zachleat/BigText
- * Plugin URI: http://arthos.fr
- * Version: 1.0.0
- * Author: Arthos
- * Author URI: http://arthos.fr
- * Text Domain: bigtext4elementor
+ * Description: Bigtext for Elementor makes lines of text fit in width, thanks to Bitext JS (https://github.com/zachleat/BigText). Updated to be in compliance with Elementor 2.X.
+ * Plugin URI:  https://arthos.fr
+ * Version:     1.1.0
+ * Author:      Arthos
+ * Author URI:  https://arthos.fr
+ * Text Domain: bigtext-for-elementor
  */
-if( ! defined( 'ABSPATH' ) ) exit;
 
-class ElementorCustomWidget {
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-	private static $instance = null;
+define( 'ELEMENTOR_BIGTEXT__FILE__', __FILE__ );
 
-	public static function get_instance() {
-		if( ! self::$instance )
-			self::$instance = new self;
-		return self::$instance;
+/**
+ * Load Bigtext for Elementor
+ *
+ * Loads the plugin after Elementor and other plugins are loaded
+ *
+ * @since 2.0.0
+ */
+function bigtext_for_elementor_load() {
+
+	// Load localization file
+	load_plugin_textdomain( 'bigtext-for-elementor' );
+
+	// Notice if Elementor is not active
+	if( ! did_action( 'elementor/loaded' ) ) {
+		add_action( 'admin_notice', 'bigtext_for_elementor_fail_load' );
+		return;
 	}
 
-	public function init() {
-		add_action( 'elementor/widgets/widgets_registered', [ $this, 'widgets_registered' ] );
-		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_style_and_script' ] );
+	// Check required version
+	$elementor_version_required = '2.0';
+	if( ! version_compare( ELEMENTOR_VERSION, $elementor_version_required, '>=' ) ) {
+		add_action( 'admin_notice', 'bigtext_for_elementor_fail_load_out_of_date' );
+		return;
 	}
 
-	public function widgets_registered() {
-		if( defined( 'ELEMENTOR_PATH' ) && class_exists( 'Elementor\Widget_Base' ) ) {
-			$template_file = 'plugins/elementor/bigtext-for-elementor-widget.php';
-			if( ! $template_file || ! is_readable( $template_file ) ) {
-				$template_file = plugin_dir_path( __FILE__ ) . 'bigtext-for-elementor-widget.php';
-			}
-			if( $template_file && is_readable( $template_file ) ) {
-				require_once $template_file;
-			}
-		} 
-	}
-
-	public function enqueue_style_and_script() {
-		wp_enqueue_script( 'bigtext', plugins_url( 'js/bigtext.js', __FILE__ ), array( 'jquery' ) );
-		wp_enqueue_script( 'bigtext-for-elementor', plugins_url( 'js/bigtext-for-elementor.js', __FILE__ ), array( 'bigtext' ) );
-		wp_enqueue_style( 'bigtext', plugins_url( 'css/bigtext-for-elementor.css', __FILE__ ) );
-	}
+	// Require the main plugin file
+	require( __DIR__ . '/plugin.php' );
 
 }
 
-ElementorCustomWidget::get_instance()->init();
+add_action( 'plugins_loaded', 'bigtext_for_elementor_load' );
+
+function bigtext_for_elementor_fail_load_out_of_date() {
+
+	if( ! current_user_can( 'update_plugins' ) ) return;
+
+	$file_path = 'elementor/elementor.php';
+
+	$upgrade_link = wp_nonce_url( self_admin_url( 'update.php?action=upgrade-plugin&plugin=' ) . $file_path, 'upgrad-plugin_' . $file_path );
+	$message = '<p>' . __( 'Bigtext for Elementor is not working because you are using an old version of Elementor.', 'bigtext-for-elementor' ) . '</p>';
+	$message .= '<p>' . sprintf( '<a href="%s" class="button-primary">%s</a>', $upgrade_link, __( 'Update Elementor Now', 'bigtext-for-elementor' ) ) . '</p>';
+
+	echo '<div class="error">' . $message . '</div>';
+
+}
